@@ -17,8 +17,17 @@
  * The data line of all connected DS18B20 sensors is wired pin D2
  * 
  * Builtin LED
- * D13
+ * D13 - Indicates Modbus activity
  * 
+ * Digital Outputs
+ * D10 - Modbus Coils 0
+ * D11 - Modbus Coils 1
+ * D12 - Modbus Coils 2
+ * 
+ * Digital Inputs
+ * D7 - Modbus Input 0
+ * D8 - Modbus Input 1
+ * D9 - Modbus Input 2
  * 
  */
 
@@ -30,9 +39,11 @@
 #include <DallasTemperature.h>
 
 const int HR_TEMP_BASE = 100;       // Holding Register base address for temperatures
-const int COIL_BASE_ADDR = 0;       // Coil address for local outputs (coils)
+const int COIL_BASE_ADDR = 0;       // Coil address for modbus outputs (coils)
 const uint8_t COIL_PINS[] = { 10, 11, 12 };   //Output pins for modbus coils
-const bool COIL_DEFAULTS[] = { false, false, false };     //Default state for modbus coil pins
+const bool COIL_DEFAULTS[] = { false, false, false };  //Default state for modbus coil pins
+const int INPUT_BASE_ADDR = 0;      // Input address for modbus inputs
+const uint8_t INPUT_PINS[] = { 7, 8, 9 };   //Input pins for modbus inputs
 const long MODBUS_BAUD = 1200;      // Baudrate for Modbus comms
 const byte MODBUS_ADDRESS = 10;     // Modbus Slave address
 
@@ -61,6 +72,7 @@ int loop_count = 0;
 unsigned long LED_off_time = 0;
 
 void setup() {
+  int i;
   // LED setup
   pinMode(LED_BUILTIN, OUTPUT);      
   digitalWrite(LED_BUILTIN, LED_OFF);
@@ -76,12 +88,17 @@ void setup() {
   Serial.println(" - Temperature Sensor\n");
 
   // Digital Output config
-  for (int i=0; i<sizeof(COIL_PINS); i++) {
+  for (i=0; i<sizeof(COIL_PINS); i++) {
     pinMode(COIL_PINS[i], OUTPUT);
     mb.addCoil(COIL_BASE_ADDR + i, COIL_DEFAULTS[i]);
   }
-  Serial.print("\n");
 
+  // Digital Input config
+  for (i=0; i<sizeof(INPUT_PINS); i++) {
+    pinMode(INPUT_PINS[i], INPUT);
+    mb.addIsts(INPUT_BASE_ADDR + i);
+  }
+  
   // modbus config
   mb.config (&HC12, MODBUS_BAUD);  
   mb.setSlaveId (MODBUS_ADDRESS);
@@ -128,7 +145,12 @@ void loop() {
   }
   loop_count++;
   delay(MODBUS_TASK_DELAY);
-  
+
+  // Read inputs and write value to modbus registers
+  for (int i=0; i<sizeof(INPUT_PINS); i++) {
+    mb.Ists(INPUT_BASE_ADDR + i, digitalRead(INPUT_PINS[i]) );
+  } 
+    
   // Temperature update is processed less frequently
   if (loop_count >= TEMP_UPDATE) {
     readTemps();
