@@ -34,6 +34,8 @@ String HC12ReadBuffer = "";
 
 int loopCount = 0;
 
+char* functionStr[]={"--", "Read Coil", "Read DI", "Read HR", "Read Input Reg", "Write Coil", "Write Holding"};
+
 void setup() {
   delay(1000);
   Serial.begin(CONSOLE_BAUD);
@@ -90,9 +92,10 @@ void read_frame() {
 // print frame data
 void process_frame(int len) {
   //first byte of frame = address
-  byte address = frame[0];
-  debug (L_INFO, "%u: Addr[%u], raw:", millis(), address);
-  for (int i = 1; i < len; i++) {
+  //int address = frame[0];
+
+  debug (L_INFO, "%8lu: #%d %s, raw:", millis(), frame[0], functionStr[frame[1]]);
+  for (int i = 0; i < len; i++) {
     debug (L_INFO, " %02X", frame[i]);
   }
   debug (L_INFO, "\n");
