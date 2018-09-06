@@ -3,8 +3,9 @@
  * Modbus on HC12 wireless
  * 3 x Digital Input
  * 3 x Digital Output
- * DS18B20 temperature sensor(s)
- * Si7021 Temp & Humidity Sensor
+ * 3 x DS18B20 temperature sensor(s)
+ * 3 x MCP9808 temperature sensor(s)
+ * 1 x Si7021 Temp & Humidity Sensor
  * 
  * HC12 Wiring :
  * Nano - HC12
@@ -45,19 +46,29 @@
  * 100 = First DS18B20 Temp sensor
  * 101 = Second DS18B20 Temp sensor
  * 102 = Third DS18B20 Temp sensor
+ * 105 = First MCP9808 Temp snesor
+ * 106 = Second MCP9808 Temp sensor
+ * 107 = Third MCP9808 Temp sensor
  * 110 = Si7021 Temperature
  * 111 = Si7021 Humidity
  * 
  */
 
+// Comment out definitions below for sensors whcih are not fitted
+#define DS18B20       //DS18B20 Temperature Sensors
+#define SI7021        //Si7021 Temperature & Humidity
+#define MCP9808_NUM 1 //Number of MCP9808 Temp sensors
+
 #include "Modbus.h"
 #include "ModbusSerial.h"
-#include "Si7021.h"
 
 // libraries:
+#ifdef DS18B20
 #include <OneWire.h> 
 #include <DallasTemperature.h>
+#endif
 
+const int HR_MCP9808_BASE_ADDR = 105;    // Holding Register base address
 const int HR_SI7021_BASE_ADDR = 110;     // Holding Register base address
 const int HR_DS18B20_BASE_ADDR = 100;    // Holding Register base address
 const int COIL_BASE_ADDR = 0;       // Coil address for modbus outputs (coils)
@@ -82,16 +93,24 @@ const long LED_ON_TIME = 500;       // [ms] LED on modbus activity
 #define LED_ON HIGH
 #define LED_OFF LOW
 
-#define SI7021    //Si7021 Temperature & Humidity
-
 #ifdef SI7021
+#include "Si7021.h"
 Si7021 th_sensor = Si7021();
 #endif
+
+#ifdef MCP9808_NUM
+#include "MCP9808.h"
+MCP9808 t_sensor = MCP9808();
+MCP9808 tmp_sensor[MCP9808_NUM];
+#endif
+
 SoftwareSerial HC12(HC12TxdPin,HC12RxdPin); // Software serial for HC12 module
 ModbusSerial mb;                          
 
+#ifdef DS18B20
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature tempSensors(&oneWire);
+#endif
 
 uint8_t num_temp_sensors = 0;       // number of connected temperature sensors
 int loop_count = 0;
@@ -99,12 +118,25 @@ unsigned long LED_off_time = 0;
 
 void setup() {
   int i;
-  // start serial port 
+  // start serial port for debug
   Serial.begin(9600);     // for debug output only
   
 #ifdef SI7021
   if (!th_sensor.begin()) {
     Serial.println("Did not find Si7021 sensor!");
+  } else {
+    mb.addHreg (HR_SI7021_BASE_ADDR, 0);
+    mb.addHreg (HR_SI7021_BASE_ADDR + 1, 0);
+  }
+#endif
+
+#ifdef MCP9808_NUM
+  for(i=0; i < MCP9808_NUM ;i++) {
+    tmp_sensor[i] = MCP9808();
+    if (! tmp_sensor[i].begin(MCP9808_I2CADDR_DEFAULT + i) ) {
+      Serial.print("Couldn't find MCP9808 #");
+      Serial.println(i);
+    }
   }
 #endif
   
@@ -115,7 +147,6 @@ void setup() {
   // Set HC12 set mode off
   pinMode(HC12_set_pin, OUTPUT);
   digitalWrite(HC12_set_pin, HIGH);
-  
   
   Serial.print("Modbus Slave #");
   Serial.print(MODBUS_ADDRESS);
@@ -137,6 +168,7 @@ void setup() {
   mb.config (&HC12, MODBUS_BAUD);  
   mb.setSlaveId (MODBUS_ADDRESS);
 
+#ifdef DS18B20
   // temperature sensors
   tempSensors.begin();
   num_temp_sensors = tempSensors.getDeviceCount();
@@ -147,13 +179,14 @@ void setup() {
     Serial.println("Error - No Temperature Sensor found!\n");
     mb.addHreg (HR_DS18B20_BASE_ADDR, 0);
   }
-  mb.addHreg (HR_SI7021_BASE_ADDR, 0);
-  mb.addHreg (HR_SI7021_BASE_ADDR + 1, 0);
+#endif
+  
 }
 
 void readTemps() {
   int i, regValue;
   float temp;
+#ifdef DS18B20
   tempSensors.requestTemperatures();
   for(i=0; i<num_temp_sensors; i++) {
     temp = tempSensors.getTempCByIndex(i);
@@ -165,6 +198,8 @@ void readTemps() {
     Serial.print(regValue);
     Serial.print("\n");
   }
+#endif
+  
 #ifdef SI7021
   regValue = (int) (th_sensor.readTemperature() * 100.0);
   mb.Hreg(HR_SI7021_BASE_ADDR, regValue);
@@ -173,6 +208,19 @@ void readTemps() {
   mb.Hreg(HR_SI7021_BASE_ADDR + 1, regValue);
   Serial.print("\tHumidity: "); Serial.println(regValue);
 #endif
+
+#ifdef MCP9808_NUM
+  for(i=0; i < MCP9808_NUM ;i++) {
+    regValue = (int) (tmp_sensor[i].readTempC() * 100.0);
+    mb.Hreg(HR_MCP9808_BASE_ADDR + i, regValue);
+    Serial.print("MCP9808 Temperature[");
+    Serial.print(i);
+    Serial.print("]: ");
+    Serial.print(regValue);
+    Serial.print("\n");
+  }
+#endif  
+ 
 }
 
 void loop() {
