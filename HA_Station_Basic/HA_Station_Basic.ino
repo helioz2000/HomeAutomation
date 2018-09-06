@@ -147,6 +147,8 @@ void setup() {
     Serial.println("Error - No Temperature Sensor found!\n");
     mb.addHreg (HR_DS18B20_BASE_ADDR, 0);
   }
+  mb.addHreg (HR_SI7021_BASE_ADDR, 0);
+  mb.addHreg (HR_SI7021_BASE_ADDR + 1, 0);
 }
 
 void readTemps() {
