@@ -1,8 +1,10 @@
 /*
  * Home Automation
  * Modbus on HC12 wireless
+ * 3 x Digital Input
+ * 3 x Digital Output
  * DS18B20 temperature sensor(s)
- * 
+ * Si7021 Temp & Humidity Sensor
  * 
  * HC12 Wiring :
  * Nano - HC12
