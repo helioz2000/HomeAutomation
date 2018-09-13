@@ -10,7 +10,7 @@
  * - continually send beacons via the HC12
  */
 //---New Settings--------------------------------------------------------------------
-#define HC12_BAUD 9600          // Baudrate 
+#define HC12_BAUD 1200          // Baudrate 
 #define HC12_CHANNEL "001"      // 001 to 127, use spacing of 5 channels 
 #define HC12_POWER 8            // TX power 1-8 = -1/2/5/8/11/14/17/20dBm
 #define HC12_MODE 3             // 1-4 = FU1/FU2/FU3/FU4  FU3 is the factory default
@@ -24,7 +24,7 @@
 debugLevels currentDebugLevel;
 
 #define HC12_SET_DELAY 300      // Timeout for HC12 set mode
-#define HC12_SET_RX_TIMEOUT 500 // Timeout when receiving data in set mode
+#define HC12_SET_RX_TIMEOUT 1000 // Timeout when receiving data in set mode
 
 const byte HC12_rx_pin = 4;
 const byte HC12_tx_pin = 5;
@@ -107,8 +107,8 @@ bool hc12_auto_baud() {
 
   while (baudrate != 0) {
     HC12.begin(baudrate);
-    //debug(L_INFO, "Checking Baud: %u\n", baudrate);
-    //delay(20);
+    debug(L_INFO, "Checking Baud: %u\n", baudrate);
+    delay(20);
     HC12.print("AT\n");
     if ( !hc12_rx_line( HC12_SET_RX_TIMEOUT ) ) goto nextBaud;
     if ( hc12_check_set_response() )  {
@@ -118,7 +118,8 @@ bool hc12_auto_baud() {
       return true;
     }
 nextBaud:
-    baudrate = baudrates[++baud_index];
+    baud_index++;
+    baudrate = baudrates[baud_index];
   }
   debug(L_ERROR, "Unable to detect Baudrate\n");
   return false;
@@ -160,14 +161,16 @@ bool hc12_setup() {
   if ( !hc12_rx_line( HC12_SET_RX_TIMEOUT ) ) goto failed;
   if ( !hc12_check_set_response() ) goto failed;
   Serial.print(HC12ReadBuffer);
-  
+
+  /*
   // retrieve HC12 version 
   HC12.print("AT+V\n");
   if ( !hc12_rx_line( HC12_SET_RX_TIMEOUT ) ) {
-    debug(L_ERROR, "AT+V failed (Version)");
+    debug(L_ERROR, "AT+V failed (Version)\n");
   } else {
     debug( L_INFO, HC12ReadBuffer.c_str() );
   }
+  */
   
   // set channel number
   HC12.print("AT+C");

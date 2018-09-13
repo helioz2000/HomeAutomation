@@ -57,7 +57,7 @@
 // Comment out definitions below for sensors whcih are not fitted
 #define DS18B20       //DS18B20 Temperature Sensors
 #define SI7021        //Si7021 Temperature & Humidity
-#define MCP9808_NUM 1 //Number of MCP9808 Temp sensors
+//#define MCP9808_NUM 1 //Number of MCP9808 Temp sensors
 
 #include "Modbus.h"
 #include "ModbusSerial.h"
