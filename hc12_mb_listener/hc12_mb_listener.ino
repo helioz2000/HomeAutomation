@@ -79,6 +79,8 @@ void read_frame() {
 
   if (len == 0) return;
 
+  //debug( L_INFO, "\nlen=%d\n", len);
+
   byte i;
   frame = (byte*) malloc(len);
   for (i=0 ; i < len ; i++) frame[i] = HC12.read();

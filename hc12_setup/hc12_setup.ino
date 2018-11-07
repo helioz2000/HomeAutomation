@@ -11,7 +11,8 @@
  */
 //---New Settings--------------------------------------------------------------------
 #define HC12_BAUD 1200          // Baudrate 
-#define HC12_CHANNEL "001"      // 001 to 127, use spacing of 5 channels 
+#define HC12_CHANNEL 1          // 001 to 127, use spacing of 5 channels 
+
 #define HC12_POWER 8            // TX power 1-8 = -1/2/5/8/11/14/17/20dBm
 #define HC12_MODE 3             // 1-4 = FU1/FU2/FU3/FU4  FU3 is the factory default
 //-----------------------------------------------------------------------------------
@@ -44,9 +45,10 @@ int loopCount = 0;
 
 void setup() {
   Serial.begin(CONSOLE_BAUD);
+  Serial.println("Starting");
   currentDebugLevel = DEBUG_LEVEL_DEFAULT;
   
-  HC12ReadBuffer.reserve(64);
+  HC12ReadBuffer.reserve(256);
   pinMode(HC12_set_pin, OUTPUT);
   hc12_set_mode(false);
   
@@ -127,7 +129,6 @@ nextBaud:
 
 void hc12_show_config() {
   hc12_set_mode(true);
-  // retrieve HC12 version 
   HC12.print("AT+RX\n");
   
   for (int i=1; i<=4; i++) {
@@ -152,56 +153,29 @@ void hc12_set_mode(bool newMode) {
 bool hc12_setup() {
   bool ret_stat = false;
 
-  Serial.print("\nSetup started\n");
+  Serial.print("\nChanging HC12 configuration:\n");
   hc12_set_mode(true);
 
-
   // check if HC12 is responding
-  HC12.print("AT\n");
-  if ( !hc12_rx_line( HC12_SET_RX_TIMEOUT ) ) goto failed;
-  if ( !hc12_check_set_response() ) goto failed;
-  Serial.print(HC12ReadBuffer);
+  hc12_cmd("AT");
 
-  /*
-  // retrieve HC12 version 
-  HC12.print("AT+V\n");
-  if ( !hc12_rx_line( HC12_SET_RX_TIMEOUT ) ) {
-    debug(L_ERROR, "AT+V failed (Version)\n");
-  } else {
-    debug( L_INFO, HC12ReadBuffer.c_str() );
+  // retrieve HC12 version (doesn't work on 1200 Baud)
+  if (hc12_active_baud > 1200) {
+    hc12_cmd("AT+V");
   }
-  */
-  
+
   // set channel number
-  HC12.print("AT+C");
-  HC12.print(HC12_CHANNEL);
-  HC12.print("\n");
-  if ( !hc12_rx_line( HC12_SET_RX_TIMEOUT ) ) goto failed;
-
+  hc12_cmd("AT+C%03d", HC12_CHANNEL);
+  
   // set baudrate for transparent mode
-  HC12.print("AT+B");
-  HC12.print(HC12_BAUD);
-  HC12.print("\n");
-  if ( !hc12_rx_line( HC12_SET_RX_TIMEOUT ) ) goto failed;
-
+  hc12_cmd("AT+B%d", HC12_BAUD);
+  
   // set power level
-  HC12.print("AT+P");
-  HC12.print(HC12_POWER);
-  HC12.print("\n");
-  if ( !hc12_rx_line( HC12_SET_RX_TIMEOUT ) ) goto failed;  
+  hc12_cmd("AT+P%d", HC12_POWER);
 
   // set mode
-  HC12.print("AT+FU");
-  HC12.print(HC12_MODE);
-  HC12.print("\n");
-  if ( !hc12_rx_line( HC12_SET_RX_TIMEOUT ) ) goto failed;  
+  hc12_cmd("AT+FU%d", HC12_MODE);
   
-  // read all parameters
-  HC12.print("AT+RX");
-  if ( !hc12_rx( HC12_SET_RX_TIMEOUT ) ) goto failed;
-  debug( L_INFO, HC12ReadBuffer.c_str() );
-  //Serial.print(HC12ReadBuffer);
-
   ret_stat = true;
 
 failed:
@@ -212,6 +186,39 @@ failed:
   if (!ret_stat)
     debug(L_ERROR, "hc12_setup failed\n");
   return ret_stat;
+}
+
+bool hc12_cmd(char *sFmt, ...)
+{
+  int retry_count = 0;
+  bool success = false;
+  char cmdStr[128];       // place holder for sprintf output
+  va_list args;          // args variable to hold the list of parameters
+  va_start(args, sFmt);  // mandatory call to initilase args 
+
+  vsprintf(cmdStr, sFmt, args);
+  va_end(args);
+
+  while (retry_count < 3) {
+    HC12.print(cmdStr);
+    HC12.print("\n");
+    if (retry_count) {
+      debug( L_INFO, "%s (retry %d)\n", cmdStr , retry_count);
+      hc12_set_mode(true);
+    } else {
+      debug( L_INFO, "%s\n", cmdStr);
+    }
+    if ( hc12_rx_line( HC12_SET_RX_TIMEOUT ) ) {
+      debug( L_INFO, "%s", HC12ReadBuffer.c_str());
+      success = hc12_check_set_response();
+      if (success) break;      
+    }
+    retry_count++;
+  } // while
+  if (!success) {
+    debug( L_INFO, "%s failed\n", cmdStr);
+  }
+  return success;
 }
 
 bool hc12_rx(int timeout) {
