@@ -7,8 +7,9 @@
  * - print the current HC12 configuration to the console
  * - transfer the new settings to the HC12
  * - print the new HC12 configuration to the console
- * - continually send beacons via the HC12
+ * - continually send text only beacons via the HC12 (for diagnostics)
  */
+ 
 //---New Settings--------------------------------------------------------------------
 #define HC12_BAUD 1200          // Baudrate 
 #define HC12_CHANNEL 1          // 001 to 127, use spacing of 5 channels 
@@ -16,7 +17,6 @@
 #define HC12_POWER 8            // TX power 1-8 = -1/2/5/8/11/14/17/20dBm
 #define HC12_MODE 3             // 1-4 = FU1/FU2/FU3/FU4  FU3 is the factory default
 //-----------------------------------------------------------------------------------
-
 
 #include <SoftwareSerial.h>
 
@@ -157,24 +157,24 @@ bool hc12_setup() {
   hc12_set_mode(true);
 
   // check if HC12 is responding
-  hc12_cmd("AT");
+  hc12_cmd(true, "AT");
 
-  // retrieve HC12 version (doesn't work on 1200 Baud)
-  if (hc12_active_baud > 1200) {
-    hc12_cmd("AT+V");
+  // retrieve HC12 version string
+  if (hc12_active_baud > 1200) {  //doesn't work on 1200 Baud
+    hc12_cmd(false, "AT+V");
   }
 
   // set channel number
-  hc12_cmd("AT+C%03d", HC12_CHANNEL);
-  
-  // set baudrate for transparent mode
-  hc12_cmd("AT+B%d", HC12_BAUD);
-  
+  if (!hc12_cmd(true, "AT+C%03d", HC12_CHANNEL) ) goto failed;
+   
   // set power level
-  hc12_cmd("AT+P%d", HC12_POWER);
+  if (!hc12_cmd(true, "AT+P%d", HC12_POWER) ) goto failed;
 
   // set mode
-  hc12_cmd("AT+FU%d", HC12_MODE);
+  if (!hc12_cmd(true, "AT+FU%d", HC12_MODE) ) goto failed;
+
+  // set baudrate for transparent mode
+  if (!hc12_cmd(true, "AT+B%d", HC12_BAUD) ) goto failed;
   
   ret_stat = true;
 
@@ -188,7 +188,11 @@ failed:
   return ret_stat;
 }
 
-bool hc12_cmd(char *sFmt, ...)
+/*
+ * Send a command to tthe HC12 and wait for a response or timeout
+ * checkResponse: if true the repsonse will be evaluated to start with "OK"
+ */
+bool hc12_cmd(bool checkResponse, char *sFmt, ...)
 {
   int retry_count = 0;
   bool success = false;
@@ -203,14 +207,18 @@ bool hc12_cmd(char *sFmt, ...)
     HC12.print(cmdStr);
     HC12.print("\n");
     if (retry_count) {
-      debug( L_INFO, "%s (retry %d)\n", cmdStr , retry_count);
+      debug( L_INFO, "TX: %s (retry %d)\n", cmdStr , retry_count);
       hc12_set_mode(true);
     } else {
-      debug( L_INFO, "%s\n", cmdStr);
+      debug( L_INFO, "TX: %s\n", cmdStr);
     }
     if ( hc12_rx_line( HC12_SET_RX_TIMEOUT ) ) {
-      debug( L_INFO, "%s", HC12ReadBuffer.c_str());
-      success = hc12_check_set_response();
+      debug( L_INFO, "RX: %s", HC12ReadBuffer.c_str());
+      if (checkResponse) {
+        success = hc12_check_set_response();
+      } else {
+        success = true; 
+      }
       if (success) break;      
     }
     retry_count++;
