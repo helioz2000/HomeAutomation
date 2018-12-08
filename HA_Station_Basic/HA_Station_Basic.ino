@@ -55,7 +55,7 @@
  */
 
 // Comment out definitions below for sensors whcih are not fitted
-#define DS18B20       //DS18B20 Temperature Sensors
+//#define DS18B20       //DS18B20 Temperature Sensors
 //#define SI7021        //Si7021 Temperature & Humidity
 //#define MCP9808_NUM 1 //Number of MCP9808 Temp sensors
 
@@ -68,6 +68,8 @@
 #include <DallasTemperature.h>
 #endif
 
+const byte MODBUS_ADDRESS = 12;     // Modbus Slave address - adjust for each module
+
 const int HR_MCP9808_BASE_ADDR = 105;    // Holding Register base address
 const int HR_SI7021_BASE_ADDR = 110;     // Holding Register base address
 const int HR_DS18B20_BASE_ADDR = 100;    // Holding Register base address
@@ -77,7 +79,6 @@ const bool COIL_DEFAULTS[] = { false, false, false };  //Default state for modbu
 const int INPUT_BASE_ADDR = 0;      // Input address for modbus inputs
 const uint8_t INPUT_PINS[] = { 7, 8, 9 };   //Input pins for modbus inputs
 const long MODBUS_BAUD = 1200;      // Baudrate for Modbus comms
-const byte MODBUS_ADDRESS = 10;     // Modbus Slave address
 
 const unsigned long MODBUS_TASK_DELAY = 200;  // run modbus task every X ms
 const int TEMP_UPDATE = 40;         // process temp update every X * MODBUS_TASK_DELAY
