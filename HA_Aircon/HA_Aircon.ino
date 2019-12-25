@@ -174,6 +174,12 @@ void setup() {
     mb.addIsts(INPUT_BASE_ADDR + i);
   }
   local_ctrl_active = !digitalRead(CTRL_LOCAL_CMD_PIN);
+  
+  if (local_ctrl_active) {
+    Serial.println("Local control");
+  } else {
+    Serial.println("Remote control");
+  }
 
   // Digital Output config
   for (i=0; i<sizeof(COIL_PINS); i++) {
@@ -214,6 +220,11 @@ void setup() {
 
   // Pump 
   mb.Coil(COIL_PUMP_ADDR, !digitalRead(CTRL_PUMP_CMD_PIN));
+  if (mb.Coil(COIL_PUMP_ADDR)) {
+    Serial.println("Pump is ON");
+  } else {
+    Serial.println("Pump is OFF");
+  }
   
   // Advertise command mode
   Serial.println("\n+++ to enter command mode");
