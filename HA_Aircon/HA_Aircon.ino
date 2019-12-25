@@ -46,7 +46,7 @@
  * 
  * 110 = A7 - Analog Input Potentiometer (0-764) max 3.3V
  * 
- * 112 = Speed Setpoint to drive (1-7)
+ * 112 = Speed Setpoint to drive (0-7)
  */
 
 const byte VERSION_MAJOR = 1;
@@ -68,8 +68,8 @@ const byte VERSION_RELEASE = 0;
 
 #define MODBUS_DEFAULT_ADDRESS 247     // Modbus Slave default address
 
-#define DEFAULT_REMOTE_LO_SPD 2       // Default speeds are deployed upon 
-#define DEFAULT_REMOTE_HI_SPD 7       // change of control from Local to Remote
+#define DEFAULT_REMOTE_LO_SPD 1       // Default speeds are deployed upon 
+#define DEFAULT_REMOTE_HI_SPD 5       // change of control from Local to Remote
 
 const int HR_DS18B20_BASE_ADDR = 100;    // Holding Register base address for Temperatures
 const int HR_DS18B20_OFFSET[] = { 0, -200 };  // Offset to correct temp reading of crappy sensors
