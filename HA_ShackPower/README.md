@@ -1,14 +1,11 @@
-# HA Aircon
-Aircon control station for Home Automation  
+# HA ShackPower
+12V Power Distribution control for Home Automation  
 
 * HC12 wireless module
 * Modbus Slave (wireless)
 * DS18B20 temperature sensor (Modbus Holding Registers)
-* 5 Relay Digital Outputs to control VSD (Modbus Coils)
-* 5 Digital Inputs (Modbus Inputs)
-* 1 Analog Input - Potentiometer (Modbus Holding Register)
+* 10 Relay Digital Outputs to control Circuits (Modbus Coils)
 
 Modbus Addresses:
-20 = Aircon VSD
-21 = Aircon Control
+22 = 12V Power Distribution
 
