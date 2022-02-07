@@ -140,7 +140,7 @@ void setup() {
   // start serial port for debug
   Serial.begin(9600);     // for debug output only
 
-  Serial.print("\nHA_SHackPower_Control V");
+  Serial.print("\nHA_ShackPower_Control V");
   Serial.print(VERSION_MAJOR);
   Serial.print(".");
   Serial.print(VERSION_MINOR);
@@ -219,12 +219,13 @@ void setup() {
   }
 
   // Pump 
-  mb.Coil(COIL_PUMP_ADDR, !digitalRead(CTRL_PUMP_CMD_PIN));
+  /* mb.Coil(COIL_PUMP_ADDR, !digitalRead(CTRL_PUMP_CMD_PIN));
   if (mb.Coil(COIL_PUMP_ADDR)) {
     Serial.println("Pump is ON");
   } else {
     Serial.println("Pump is OFF");
   }
+*/
   
   // Advertise command mode
   Serial.println("\n+++ to enter command mode");
