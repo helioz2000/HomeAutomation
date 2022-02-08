@@ -1,15 +1,13 @@
 /*
  * Home Automation
  * Station
- * Shack Power Control
+ * Shack 240VAC Power Control
  * 
  * Target: Arduino Nano
  * 
  * Modbus on HC12 wireless
- * 5 x Digital Input
- * 5 x Digital Output
- * 2 x DS18B20 temperature sensor
- * 1 x Analog Input potentiometer
+ * 2 x Digital Output
+ * 1 x DS18B20 temperature sensor
  * 
  * HC12 Wiring :
  * Nano - HC12
@@ -27,26 +25,16 @@
  * D13 - Indicates Modbus activity
  * 
  * Modbus Coil Registers
- * 0 = D16 - VSD Run signal
- * 1 = D17 - VSD B0 (speed)
- * 2 = D15 - VSD B1 (speed)
- * 3 = D14 - VSD B2 (spped)
- * 4 = D3  - Water Pump
+ * 0 = D16 - Power Outlet 1
+ * 1 = D17 - Power Outlet 2
  * 
  * Modbus Input Registers:
- * 0 = D7  - Pump Run Command
- * 1 = D8  - Aircon Hi Speed command
- * 2 = D9  - Local Control Start PB
- * 3 = D10 - Local Control Stop PB (Normally Closed)
- * 4 = D11 - Local Control Selected (Hi = Local, Lo = Remote)
+ * 0 = D7  - Not Used
+ * 1 = D8  - Not Used
  * 
  * Modbus Holding Registers:
- * 100 = DS18B20 Temp sensor 1 (environment)
- * 101 = DS18B20 Temp sensor 2 (on board)
+ * 100 = DS18B20 Temp sensor 1 (on board)
  * 
- * 110 = A7 - Analog Input Potentiometer (0-764) max 3.3V
- * 
- * 112 = Speed Setpoint to drive (0-7)
  */
 
 const byte VERSION_MAJOR = 1;
@@ -74,21 +62,16 @@ const byte VERSION_RELEASE = 0;
 const int HR_DS18B20_BASE_ADDR = 100;    // Holding Register base address for Temperatures
 const int HR_DS18B20_OFFSET[] = { 0, -200 };  // Offset to correct temp reading of crappy sensors
 const int COIL_BASE_ADDR = 0;       // Coil address for modbus outputs (coils)
-const uint8_t COIL_PINS[] = { 16, 17, 15, 14, 3 };   //Output pins for modbus coils
-const bool COIL_DEFAULTS[] = { true, true, true, true, false };  //Default state for modbus coil pins
+const uint8_t COIL_PINS[] = { 10, 11, 12 };   //Output pins for modbus coils
+const bool COIL_DEFAULTS[] = { false, false, false };  //Default state for modbus coil pins
 const int INPUT_BASE_ADDR = 0;      // Input address for modbus inputs
-const uint8_t INPUT_PINS[] = { 7, 8, 9, 10, 11 };   //Input pins for modbus inputs
+const uint8_t INPUT_PINS[] = { 7, 8, 9 };   //Input pins for modbus inputs
 const int HR_ANALOG_BASE_ADDR = 110;     // Holding Register base address for Analog Inputs
 const uint8_t ANANLOG_PINS[] = { A7 };    // Input pins for Analogs
-const int HR_SPEED_SP_ADDR = 112;       // Holding Register for VSD speed setpoint (1-7)
-//const uint8_t HR_SPEED_SP_DEFAULT = 7;  // Default value for speed SP (used after cold start in remote mode)
 
 // these relate to the Modbus COIL_PINS array
-#define COIL_VSD_START_ADDR 0
-#define COIL_VSD_B0_ADDR 1
-#define COIL_VSD_B1_ADDR 2
-#define COIL_VSD_B2_ADDR 3
-#define COIL_PUMP_ADDR 4
+#define COIL_POWER1 0
+#define COIL_POWER2 1
 
 const long MODBUS_BAUD = 1200;      // Baudrate for Modbus comms
 const unsigned long MODBUS_TASK_DELAY = 200;  // run modbus task every X ms
@@ -99,12 +82,6 @@ const byte HC12TxdPin = 5;          // TX Pin on HC12
 const byte HC12_set_pin = 6;          // SET Pin on HC12
 
 const uint8_t ONE_WIRE_BUS = 2;     // D2 is used for one wire bus
-
-const byte CTRL_PUMP_CMD_PIN = 7;       // D7 remote "pump on" command
-const byte CTRL_HI_SPD_CMD_PIN = 8;     // D8 remote "hi speed" command
-const byte CTRL_START_CMD_PIN = 9;      // D9 local Start PB
-const byte CTRL_STOP_CMD_PIN = 10;       // D10 local Stop PB (NC, activated when low)
-const byte CTRL_LOCAL_CMD_PIN = 11;     // D11 high = Local Control override activated
 
 const long LED_ON_TIME = 500;       // [ms] LED on modbus activity
 
@@ -122,17 +99,11 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature tempSensors(&oneWire);
 #endif
 
-uint8_t num_temp_sensors = 2;       // number of connected DS18B20 temperature sensors
+uint8_t num_temp_sensors = 1;       // number of connected DS18B20 temperature sensors
 uint8_t modbus_address = 0;         // RTU slave address
 int loop_count = 0;
 unsigned long LED_off_time = 0;
 byte cmd_mode_cnt = CMD_MODE_CNT;
-bool local_ctrl_active = false;
-bool local_ctrl_active_shadow = false;
-bool hi_speed_cmd = false;
-bool hi_speed_cmd_shadow = false;
-bool pump_cmd = false;
-bool pump_cmd_shadow = false;
 
 void setup() {
   unsigned int i;
@@ -173,14 +144,7 @@ void setup() {
     digitalWrite(INPUT_PINS[i], HIGH);
     mb.addIsts(INPUT_BASE_ADDR + i);
   }
-  local_ctrl_active = !digitalRead(CTRL_LOCAL_CMD_PIN);
   
-  if (local_ctrl_active) {
-    Serial.println("Local control");
-  } else {
-    Serial.println("Remote control");
-  }
-
   // Digital Output config
   for (i=0; i<sizeof(COIL_PINS); i++) {
     pinMode(COIL_PINS[i], OUTPUT);
@@ -206,26 +170,6 @@ void setup() {
   Serial.println(num_temp_sensors);
   
 #endif
-
-  // Analog Input
-  value = analogRead(ANANLOG_PINS[0]);
-  mb.addHreg (HR_ANALOG_BASE_ADDR, value);
-
-  // Speed setpoint
-  if (!digitalRead(CTRL_HI_SPD_CMD_PIN)) {
-    mb.addHreg (HR_SPEED_SP_ADDR, DEFAULT_REMOTE_HI_SPD);
-  } else {
-    mb.addHreg (HR_SPEED_SP_ADDR, DEFAULT_REMOTE_LO_SPD);
-  }
-
-  // Pump 
-  /* mb.Coil(COIL_PUMP_ADDR, !digitalRead(CTRL_PUMP_CMD_PIN));
-  if (mb.Coil(COIL_PUMP_ADDR)) {
-    Serial.println("Pump is ON");
-  } else {
-    Serial.println("Pump is OFF");
-  }
-*/
   
   // Advertise command mode
   Serial.println("\n+++ to enter command mode");
@@ -362,107 +306,6 @@ void processSerialInput() {
   }
 }
 
-// called when local control is activated by selectror switch on panel
-// allows on/off control from panel
-void processControlLocal() {
-  int newSpeedSetpoint = 0;
-  int rawAnalog = mb.Hreg(HR_ANALOG_BASE_ADDR);
-
-  // in local mode the speed reference comes from the potentiometer 
-  // determine speed setpoint (1-7) from analog input 
-  if (rawAnalog < 105) newSpeedSetpoint = 1;
-  if ((rawAnalog > 115) && (rawAnalog < 215)) newSpeedSetpoint = 2;
-  if ((rawAnalog > 225) && (rawAnalog < 325)) newSpeedSetpoint = 3;
-  if ((rawAnalog > 335) && (rawAnalog < 435)) newSpeedSetpoint = 4;
-  if ((rawAnalog > 445) && (rawAnalog < 545)) newSpeedSetpoint = 5;
-  if ((rawAnalog > 555) && (rawAnalog < 655)) newSpeedSetpoint = 6;
-  if (rawAnalog > 665) newSpeedSetpoint = 7;
-
-  int old_sp = mb.Hreg(HR_SPEED_SP_ADDR);
-  // if pot is between ranges we have a value of 0
-  if (newSpeedSetpoint != 0) {
-    // check if the speed setpoint has changed   
-    // modify setpoint if it has changed
-    if (old_sp != newSpeedSetpoint) {
-      mb.Hreg(HR_SPEED_SP_ADDR, newSpeedSetpoint);    // update MB register with new speed SP
-      Serial.print("New Speed SP = ");
-      Serial.print(newSpeedSetpoint);
-      Serial.print("\n");   
-    }
-  }
-  // Start button activated
-  if (digitalRead(CTRL_START_CMD_PIN) == false) {
-    if (!mb.Coil(COIL_VSD_START_ADDR)) Serial.print("Started\n");
-    mb.Coil(COIL_VSD_START_ADDR, true);
-    mb.Coil(COIL_PUMP_ADDR, true);
-  }
-
-  // Stop button activate
-  if (digitalRead(CTRL_STOP_CMD_PIN) == true) {
-    if (mb.Coil(COIL_VSD_START_ADDR)) Serial.print("Stopped\n");
-    mb.Coil(COIL_VSD_START_ADDR, false);
-    mb.Coil(COIL_PUMP_ADDR, false); 
-  }
-}
-
-void processControlRemote() {
-  hi_speed_cmd = !digitalRead(CTRL_HI_SPD_CMD_PIN);
-  // look for change in remote speed selection (switch hi or low)
-  if (hi_speed_cmd != hi_speed_cmd_shadow) {
-    hi_speed_cmd_shadow = hi_speed_cmd;
-    // set default speed
-    if (hi_speed_cmd) {
-      mb.Hreg(HR_SPEED_SP_ADDR, DEFAULT_REMOTE_HI_SPD);
-    } else {
-      mb.Hreg(HR_SPEED_SP_ADDR, DEFAULT_REMOTE_LO_SPD);
-    }
-  }
-
-  pump_cmd = !digitalRead(CTRL_PUMP_CMD_PIN);
-  if (pump_cmd != pump_cmd_shadow) {
-    pump_cmd_shadow = pump_cmd;
-    mb.Coil(COIL_PUMP_ADDR, pump_cmd);
-  }
-}
-
-void processControl() {
-  local_ctrl_active = !digitalRead(CTRL_LOCAL_CMD_PIN);
-
-  // detect change in local/remote mode
-  if (local_ctrl_active != local_ctrl_active_shadow) {
-    if (local_ctrl_active) {
-      Serial.print("Local Control Activated\n");
-      mb.Coil(COIL_PUMP_ADDR, true);
-    } else {
-      Serial.print("Local Control Deactivated\n");
-      // set VSD ON
-      mb.Coil(COIL_VSD_START_ADDR, true);
-      // pump depends on command signal
-      mb.Coil(COIL_PUMP_ADDR, !digitalRead(CTRL_PUMP_CMD_PIN));
-      // fan speed
-      if (!digitalRead(CTRL_HI_SPD_CMD_PIN)) {
-        mb.Hreg(HR_SPEED_SP_ADDR, DEFAULT_REMOTE_HI_SPD);    // update MB register with new speed SP
-      } else {
-        mb.Hreg(HR_SPEED_SP_ADDR, DEFAULT_REMOTE_LO_SPD);    // update MB register with new speed SP
-      }
-    }
-  } 
-  
-  if (local_ctrl_active) {
-    processControlLocal();
-  } else {
-    processControlRemote();
-  }
-
-  // speed setpoint to VSD
-  int spd = mb.Hreg(HR_SPEED_SP_ADDR);
-  mb.Coil(COIL_VSD_B0_ADDR, spd & 0x01);
-  mb.Coil(COIL_VSD_B1_ADDR, spd & 0x02);
-  mb.Coil(COIL_VSD_B2_ADDR, spd & 0x04);
-  
-  local_ctrl_active_shadow = local_ctrl_active;
-}
-
 
 void loop() {
 
@@ -484,16 +327,12 @@ void loop() {
   for (i=0; i<sizeof(INPUT_PINS); i++) {
     mb.Ists(INPUT_BASE_ADDR + i, digitalRead(INPUT_PINS[i]) );
   } 
-  readAnalogs();
     
   // Temperature update is processed less frequently
   if (loop_count >= TEMP_UPDATE) {
     readTemps();
     loop_count = 0;
   }
-
-  // aircon control functions
-  processControl();
   
   // LED off control
   if (LED_off_time != 0) {
