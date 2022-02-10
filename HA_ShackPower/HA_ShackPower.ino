@@ -7,7 +7,7 @@
  * 
  * Modbus on HC12 wireless
  * 2 x Digital Output
- * 1 x DS18B20 temperature sensor
+ * 1 x DS18B20 temperature sensor (onboard)
  * 
  * HC12 Wiring :
  * Nano - HC12
@@ -25,8 +25,10 @@
  * D13 - Indicates Modbus activity
  * 
  * Modbus Coil Registers
- * 0 = D16 - Power Outlet 1
- * 1 = D17 - Power Outlet 2
+ * 0 = D18 - Power Outlet 1 (SDA)
+ * 1 = D19 - Power Outlet 2 (SCA)
+ * 
+ * Note: using SDA and SCA as there are already pins on the PCB
  * 
  * Modbus Input Registers:
  * 0 = D7  - Not Used
@@ -62,12 +64,12 @@ const byte VERSION_RELEASE = 0;
 const int HR_DS18B20_BASE_ADDR = 100;    // Holding Register base address for Temperatures
 const int HR_DS18B20_OFFSET[] = { 0, -200 };  // Offset to correct temp reading of crappy sensors
 const int COIL_BASE_ADDR = 0;       // Coil address for modbus outputs (coils)
-const uint8_t COIL_PINS[] = { 10, 11, 12 };   //Output pins for modbus coils
+const uint8_t COIL_PINS[] = { 18, 19, 10 };   //Output pins for modbus coils
 const bool COIL_DEFAULTS[] = { false, false, false };  //Default state for modbus coil pins
 const int INPUT_BASE_ADDR = 0;      // Input address for modbus inputs
 const uint8_t INPUT_PINS[] = { 7, 8, 9 };   //Input pins for modbus inputs
 const int HR_ANALOG_BASE_ADDR = 110;     // Holding Register base address for Analog Inputs
-const uint8_t ANANLOG_PINS[] = { A7 };    // Input pins for Analogs
+//const uint8_t ANANLOG_PINS[] = { A7 };    // Input pins for Analogs
 
 // these relate to the Modbus COIL_PINS array
 #define COIL_POWER1 0
@@ -217,6 +219,7 @@ void readTemps() {
 #endif
 }
 
+/*
 void readAnalogs() {
   int rawValue;
   rawValue = analogRead(ANANLOG_PINS[0]);
@@ -225,6 +228,7 @@ void readAnalogs() {
   //Serial.print(rawValue);
   //Serial.print("\n");
 }
+*/
 
 int read_value() {
   char inStr[20];
