@@ -37,7 +37,7 @@
  * Note: using SDA and SCA as there are already pins on the PCB
  * 
  * Modbus Input Registers:
- * 0 = D3  - Not Used
+ * 0 = D3 - not used
  *
  * 
  * Modbus Holding Registers:
@@ -46,7 +46,7 @@
  */
 
 const byte VERSION_MAJOR = 1;
-const byte VERSION_MINOR = 0;
+const byte VERSION_MINOR = 1;
 const byte VERSION_RELEASE = 0;
 
 // Comment out definitions below to disable sensors 
@@ -220,6 +220,18 @@ void readTemps() {
       Serial.print("]: ");
       Serial.print(mb.Hreg(HR_DS18B20_BASE_ADDR + i));
       Serial.print("\n");
+      /*Serial.print("Inputs: ");
+      for (i=0; i<sizeof(INPUT_PINS); i++) {
+        Serial.print(mb.Ists(INPUT_BASE_ADDR+i));
+        Serial.print(" ");
+      } 
+      Serial.print("\n"); */
+      /*Serial.print("Coils: ");
+      for (i=0; i<sizeof(COIL_PINS); i++) {
+        Serial.print(mb.Coil(COIL_BASE_ADDR+i));
+        Serial.print(" ");
+      } 
+      Serial.print("\n");*/
     }
   }
 #endif

@@ -307,17 +307,17 @@ void Modbus::readCoils(word startreg, word numregs) {
 
     //Clean frame buffer
     free(_frame);
-  _len = 0;
+    _len = 0;
 
     //Determine the message length = function type, byte count and
-  //for each group of 8 registers the message length increases by 1
-  _len = 2 + numregs/8;
-  if (numregs%8) _len++; //Add 1 to the message length for the partial byte.
+    //for each group of 8 registers the message length increases by 1
+    _len = 2 + numregs/8;
+    if (numregs%8) _len++; //Add 1 to the message length for the partial byte.
 
     _frame = (byte *) malloc(_len);
     if (!_frame) {
-        this->exceptionResponse(MB_FC_READ_COILS, MB_EX_SLAVE_FAILURE);
-        return;
+      this->exceptionResponse(MB_FC_READ_COILS, MB_EX_SLAVE_FAILURE);
+      return;
     }
 
     _frame[0] = MB_FC_READ_COILS;
@@ -325,20 +325,23 @@ void Modbus::readCoils(word startreg, word numregs) {
 
     byte bitn = 0;
     word totregs = numregs;
-    word i;
-  while (numregs--) {
-        i = (totregs - numregs) / 8;
-    if (this->Coil(startreg))
-      bitSet(_frame[2+i], bitn);
-    else
-      bitClear(_frame[2+i], bitn);
-    //increment the bit index
-    bitn++;
-    if (bitn == 8) bitn = 0;
-    //increment the register
-    startreg++;
-  }
-
+    int regs_to_process = numregs;
+    word frameidx = 0;
+    while (regs_to_process > 0) {
+      if (this->Coil(startreg))
+        bitSet(_frame[2+frameidx], bitn);
+      else
+        bitClear(_frame[2+frameidx], bitn);
+      //increment the bit index
+      bitn++;
+      if (bitn >= 8) {
+        bitn = 0;
+        frameidx++;
+      }
+      //increment the registers
+      startreg++;
+      regs_to_process--;
+    }
     _reply = MB_REPLY_NORMAL;
 }
 
@@ -358,12 +361,12 @@ void Modbus::readInputStatus(word startreg, word numregs) {
 
     //Clean frame buffer
     free(_frame);
-  _len = 0;
+    _len = 0;
 
     //Determine the message length = function type, byte count and
-  //for each group of 8 registers the message length increases by 1
-  _len = 2 + numregs/8;
-  if (numregs%8) _len++; //Add 1 to the message length for the partial byte.
+    //for each group of 8 registers the message length increases by 1
+    _len = 2 + numregs/8;
+    if (numregs%8) _len++; //Add 1 to the message length for the partial byte.
 
     _frame = (byte *) malloc(_len);
     if (!_frame) {
@@ -375,21 +378,23 @@ void Modbus::readInputStatus(word startreg, word numregs) {
     _frame[1] = _len - 2;
 
     byte bitn = 0;
-    word totregs = numregs;
-    word i;
-  while (numregs--) {
-        i = (totregs - numregs) / 8;
-    if (this->Ists(startreg))
-      bitSet(_frame[2+i], bitn);
-    else
-      bitClear(_frame[2+i], bitn);
-    //increment the bit index
-    bitn++;
-    if (bitn == 8) bitn = 0;
-    //increment the register
-    startreg++;
-  }
-
+    int regs_to_process = numregs;
+    word frameidx = 0;
+    while (regs_to_process > 0) {
+      if (this->Ists(startreg))
+        bitSet(_frame[2+frameidx], bitn);
+      else
+        bitClear(_frame[2+frameidx], bitn);
+      //increment the bit index
+      bitn++;
+      if (bitn >= 8) {
+        bitn = 0;
+        frameidx++;
+      }
+      //increment the register
+      startreg++;
+       regs_to_process--;
+    }
     _reply = MB_REPLY_NORMAL;
 }
 
